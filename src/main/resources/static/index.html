@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Battleship</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.5.0/bundles/stomp.umd.min.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+<main>
+    <h1>Battleship</h1>
+    <p id="connection" class="muted">Connecting…</p>
+
+    <section id="lobby">
+        <button id="create" disabled>Create room</button>
+        <div class="join">
+            <input id="code" placeholder="Room code" maxlength="6" autocomplete="off">
+            <button id="join" disabled>Join</button>
+        </div>
+    </section>
+
+    <section id="room" hidden>
+        <p>Room code: <strong id="room-code"></strong></p>
+        <p>Players: <span id="room-players"></span>/2</p>
+        <p id="room-status"></p>
+    </section>
+
+    <p id="error" class="error" hidden></p>
+</main>
+</body>
+</html>

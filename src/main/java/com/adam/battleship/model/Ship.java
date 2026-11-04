@@ -1,11 +1,14 @@
 package com.adam.battleship.model;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Ship {
     private final ShipType type;
     private final List<Coordinate> positions;
+    private final Set<Coordinate> hits = new HashSet<>();
 
     public Ship(ShipType type, Coordinate start, Orientation orientation) {
         this.type = type;
@@ -26,5 +29,16 @@ public class Ship {
 
     public List<Coordinate> getPositions() {
         return positions;
+    }
+
+    public void hit(Coordinate c) {
+        if (!positions.contains(c)) {
+            throw new IllegalArgumentException(c + " is not part of this " + type);
+        }
+        hits.add(c);
+    }
+
+    public boolean isSunk() {
+        return hits.size() == positions.size();
     }
 }

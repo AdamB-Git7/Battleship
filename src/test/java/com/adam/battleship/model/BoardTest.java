@@ -3,12 +3,90 @@ package com.adam.battleship.model;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoardTest {
     private final Board board = new Board();
+
+    @Test
+    void shotAtWaterIsAMiss() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertEquals(ShotResult.MISS, board.fireAt(new Coordinate(5, 5)));
+    }
+
+    @Test
+    void shotAtAShipIsAHit() {
+        board.placeShip(ShipType.CRUISER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertEquals(ShotResult.HIT, board.fireAt(new Coordinate(0, 1)));
+    }
+
+    @Test
+    void lastSquareOfAShipSinksIt() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(3, 3), Orientation.VERTICAL);
+
+        assertEquals(ShotResult.HIT, board.fireAt(new Coordinate(3, 3)));
+        assertEquals(ShotResult.SUNK, board.fireAt(new Coordinate(4, 3)));
+    }
+
+    @Test
+    void firingAtTheSameShipSquareTwiceIsRejected() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.fireAt(new Coordinate(0, 0));
+
+        assertThrows(IllegalStateException.class, () -> board.fireAt(new Coordinate(0, 0)));
+    }
+
+    @Test
+    void firingAtTheSameWaterSquareTwiceIsRejected() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.fireAt(new Coordinate(7, 7));
+
+        assertThrows(IllegalStateException.class, () -> board.fireAt(new Coordinate(7, 7)));
+    }
+
+    @Test
+    void shotOffTheBoardIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> board.fireAt(new Coordinate(10, 0)));
+        assertThrows(IllegalArgumentException.class, () -> board.fireAt(new Coordinate(0, -1)));
+    }
+
+    @Test
+    void refusedOffBoardShotIsNotRecorded() {
+        assertThrows(IllegalArgumentException.class, () -> board.fireAt(new Coordinate(10, 0)));
+
+        assertThrows(IllegalArgumentException.class, () -> board.fireAt(new Coordinate(10, 0)));
+    }
+
+    @Test
+    void shotsAtTheEdgeSquaresAreAllowed() {
+        assertEquals(ShotResult.MISS, board.fireAt(new Coordinate(0, 0)));
+        assertEquals(ShotResult.MISS, board.fireAt(new Coordinate(9, 9)));
+    }
+
+    @Test
+    void emptyBoardDoesNotCountAsAllSunk() {
+        assertFalse(board.allShipsSunk());
+    }
+
+    @Test
+    void allShipsSunkOnlyWhenEveryShipIsSunk() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.placeShip(ShipType.CRUISER, new Coordinate(2, 0), Orientation.HORIZONTAL);
+
+        board.fireAt(new Coordinate(0, 0));
+        board.fireAt(new Coordinate(0, 1));
+        assertFalse(board.allShipsSunk());
+
+        board.fireAt(new Coordinate(2, 0));
+        board.fireAt(new Coordinate(2, 1));
+        board.fireAt(new Coordinate(2, 2));
+        assertTrue(board.allShipsSunk());
+    }
 
     @Test
     void placedShipOccupiesItsSquares() {

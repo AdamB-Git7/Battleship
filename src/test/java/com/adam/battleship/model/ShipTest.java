@@ -5,9 +5,48 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ShipTest {
+    @Test
+    void newShipIsNotSunk() {
+        Ship ship = new Ship(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertFalse(ship.isSunk());
+    }
+
+    @Test
+    void shipSinksOnlyWhenEverySquareIsHit() {
+        Ship ship = new Ship(ShipType.CRUISER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        ship.hit(new Coordinate(0, 0));
+        ship.hit(new Coordinate(0, 1));
+        assertFalse(ship.isSunk());
+
+        ship.hit(new Coordinate(0, 2));
+        assertTrue(ship.isSunk());
+    }
+
+    @Test
+    void hittingTheSameSquareTwiceCountsOnce() {
+        Ship ship = new Ship(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        ship.hit(new Coordinate(0, 0));
+        ship.hit(new Coordinate(0, 0));
+
+        assertFalse(ship.isSunk());
+    }
+
+    @Test
+    void hitOutsideTheShipIsRejected() {
+        Ship ship = new Ship(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertThrows(IllegalArgumentException.class, () -> ship.hit(new Coordinate(5, 5)));
+        assertFalse(ship.isSunk());
+    }
+
     @Test
     void horizontalShipGrowsToTheRight() {
         Ship ship = new Ship(ShipType.CRUISER, new Coordinate(2, 3), Orientation.HORIZONTAL);

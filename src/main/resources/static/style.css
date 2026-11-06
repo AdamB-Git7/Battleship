@@ -36,6 +36,10 @@
     box-sizing: border-box;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 body {
     margin: 0;
     background: var(--bg);
@@ -76,6 +80,23 @@ h2 {
 
 .status {
     font-weight: 600;
+}
+
+.notice {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
 }
 
 .join,

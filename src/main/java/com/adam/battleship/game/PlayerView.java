@@ -13,5 +13,7 @@ public record PlayerView(
         boolean youWon,
         List<ShipType> shipsToPlace,
         List<List<CellView>> yourBoard,
-        List<List<CellView>> opponentBoard) {
+        List<List<CellView>> opponentBoard,
+        boolean rematchRequestedByYou,
+        boolean rematchRequestedByOpponent) {
 }

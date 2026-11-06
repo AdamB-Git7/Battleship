@@ -358,6 +358,111 @@ class GameTest {
         assertEquals(GameStatus.FINISHED, game.viewFor("bob").status());
     }
 
+    @Test
+    void hasPlayerKnowsBothPlayersAndNobodyElse() {
+        Game game = new Game("ABCDEF", "alice");
+        assertTrue(game.hasPlayer("alice"));
+        assertFalse(game.hasPlayer("bob"));
+
+        game.join("bob");
+
+        assertTrue(game.hasPlayer("bob"));
+        assertFalse(game.hasPlayer("mallory"));
+        assertFalse(game.hasPlayer(null));
+    }
+
+    @Test
+    void cannotAskForARematchBeforeTheGameIsOver() {
+        Game game = startedGame();
+
+        assertThrows(IllegalStateException.class, () -> game.requestRematch("alice"));
+    }
+
+    @Test
+    void strangerCannotAskForARematch() {
+        Game game = finishedGame();
+
+        assertThrows(IllegalArgumentException.class, () -> game.requestRematch("mallory"));
+    }
+
+    @Test
+    void oneVoteIsNotEnoughForARematch() {
+        Game game = finishedGame();
+
+        game.requestRematch("bob");
+
+        assertEquals(GameStatus.FINISHED, game.getStatus());
+        assertTrue(game.viewFor("bob").rematchRequestedByYou());
+        assertFalse(game.viewFor("bob").rematchRequestedByOpponent());
+        assertFalse(game.viewFor("alice").rematchRequestedByYou());
+        assertTrue(game.viewFor("alice").rematchRequestedByOpponent());
+    }
+
+    @Test
+    void votingTwiceStillCountsOnce() {
+        Game game = finishedGame();
+
+        game.requestRematch("bob");
+        game.requestRematch("bob");
+
+        assertEquals(GameStatus.FINISHED, game.getStatus());
+    }
+
+    @Test
+    void bothVotesStartAFreshGame() {
+        Game game = finishedGame();
+
+        game.requestRematch("alice");
+        game.requestRematch("bob");
+
+        assertEquals(GameStatus.PLACING_SHIPS, game.getStatus());
+        assertNull(game.getWinner());
+        assertNull(game.getCurrentTurn());
+        PlayerView alice = game.viewFor("alice");
+        assertEquals(List.of(ShipType.values()), alice.shipsToPlace());
+        assertFalse(containsAnything(alice.yourBoard()), "old ships or shots survived the rematch");
+        assertFalse(containsAnything(alice.opponentBoard()), "old shots survived the rematch");
+        assertFalse(alice.rematchRequestedByYou());
+        assertFalse(alice.rematchRequestedByOpponent());
+    }
+
+    @Test
+    void rematchCanBePlayedToTheEnd() {
+        Game game = finishedGame();
+        game.requestRematch("alice");
+        game.requestRematch("bob");
+        placeAllShips(game, "alice", ALICE_FIRST_ROW);
+        placeAllShips(game, "bob", BOB_FIRST_ROW);
+
+        assertEquals(GameStatus.IN_PROGRESS, game.getStatus());
+        assertEquals(ShotResult.HIT, game.fire("alice", new Coordinate(BOB_FIRST_ROW, 0)));
+    }
+
+    private Game finishedGame() {
+        Game game = startedGame();
+        List<Coordinate> bobShips = shipSquares(BOB_FIRST_ROW);
+        List<Coordinate> water = halfOfBoard(BOB_FIRST_ROW);
+        for (int i = 0; i < bobShips.size(); i++) {
+            game.fire("alice", bobShips.get(i));
+            if (i < bobShips.size() - 1) {
+                game.fire("bob", water.get(i));
+            }
+        }
+        assertEquals(GameStatus.FINISHED, game.getStatus());
+        return game;
+    }
+
+    private boolean containsAnything(List<List<CellView>> board) {
+        for (List<CellView> row : board) {
+            for (CellView cell : row) {
+                if (cell != CellView.EMPTY) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean containsShip(List<List<CellView>> board) {
         for (List<CellView> row : board) {
             if (row.contains(CellView.SHIP)) {

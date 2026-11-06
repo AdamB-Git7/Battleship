@@ -3,6 +3,7 @@ package com.adam.battleship.controller;
 import com.adam.battleship.dto.ErrorMessage;
 import com.adam.battleship.dto.FireRequest;
 import com.adam.battleship.dto.JoinRequest;
+import com.adam.battleship.dto.Notice;
 import com.adam.battleship.dto.PlaceShipRequest;
 import com.adam.battleship.dto.RoomUpdate;
 import com.adam.battleship.game.PlayerView;
@@ -55,7 +56,9 @@ class GameControllerIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        sessions.forEach(StompSession::disconnect);
+        sessions.stream()
+                .filter(StompSession::isConnected)
+                .forEach(StompSession::disconnect);
         stompClient.stop();
     }
 
@@ -172,8 +175,123 @@ class GameControllerIntegrationTest {
         assertEquals(CellView.SUNK, aliceView.opponentBoard().get(BOB_FIRST_ROW).get(0));
     }
 
+    @Test
+    void bothPlayersAskingForARematchStartsANewGame() throws Exception {
+        Player alice = connect();
+        Player bob = connect();
+        String code = startGame(alice, bob);
+        playToTheEnd(alice, bob, code);
+
+        bob.session.send("/app/rematch", null);
+        PlayerView aliceSees = checkedNext(alice.game);
+        PlayerView bobSees = checkedNext(bob.game);
+        assertTrue(aliceSees.rematchRequestedByOpponent());
+        assertTrue(bobSees.rematchRequestedByYou());
+        assertEquals(GameStatus.FINISHED, aliceSees.status());
+
+        alice.session.send("/app/rematch", null);
+        aliceSees = checkedNext(alice.game);
+        bobSees = checkedNext(bob.game);
+        assertEquals(GameStatus.PLACING_SHIPS, aliceSees.status());
+        assertEquals(code, aliceSees.code());
+        assertEquals(List.of(ShipType.values()), bobSees.shipsToPlace());
+        assertFalse(containsShip(bobSees.yourBoard()), "old ships survived the rematch");
+    }
+
+    @Test
+    void rematchBeforeTheGameIsOverSendsAnError() throws Exception {
+        Player alice = connect();
+        Player bob = connect();
+        startGame(alice, bob);
+
+        alice.session.send("/app/rematch", null);
+
+        assertEquals("The game is not over yet", next(alice.errors).message());
+    }
+
+    @Test
+    void leavingTellsTheOpponentAndDeletesTheRoom() throws Exception {
+        Player alice = connect();
+        Player bob = connect();
+        String code = startGame(alice, bob);
+
+        bob.session.send("/app/leave", null);
+
+        assertEquals("Your opponent left the game.", next(alice.left).message());
+        assertNull(bob.left.poll(500, TimeUnit.MILLISECONDS));
+        Player carol = connect();
+        carol.session.send("/app/join", new JoinRequest(code));
+        assertEquals("Room not found: " + code, next(carol.errors).message());
+    }
+
+    @Test
+    void closingTheTabCountsAsLeaving() throws Exception {
+        Player alice = connect();
+        Player bob = connect();
+        startGame(alice, bob);
+
+        bob.session.disconnect();
+
+        assertEquals("Your opponent left the game.", next(alice.left).message());
+    }
+
+    @Test
+    void creatorLeavingAnEmptyRoomDeletesIt() throws Exception {
+        Player alice = connect();
+        alice.session.send("/app/create", null);
+        String code = next(alice.room).code();
+
+        alice.session.send("/app/leave", null);
+
+        Player bob = connect();
+        bob.session.send("/app/join", new JoinRequest(code));
+        assertEquals("Room not found: " + code, next(bob.errors).message());
+    }
+
+    @Test
+    void bothPlayersCanStartNewGamesAfterLeaving() throws Exception {
+        Player alice = connect();
+        Player bob = connect();
+        startGame(alice, bob);
+        bob.session.send("/app/leave", null);
+        next(alice.left);
+
+        alice.session.send("/app/create", null);
+        bob.session.send("/app/create", null);
+
+        assertNotNull(next(alice.room).code());
+        assertNotNull(next(bob.room).code());
+    }
+
+    @Test
+    void leavingWhenInNoRoomDoesNothing() throws Exception {
+        Player alice = connect();
+
+        alice.session.send("/app/leave", null);
+        alice.session.send("/app/create", null);
+
+        assertNotNull(next(alice.room).code());
+        assertNull(alice.errors.poll(500, TimeUnit.MILLISECONDS));
+    }
+
+    private void playToTheEnd(Player alice, Player bob, String code) throws InterruptedException {
+        List<int[]> bobShips = shipSquares(BOB_FIRST_ROW);
+        for (int i = 0; i < bobShips.size(); i++) {
+            int[] target = bobShips.get(i);
+            alice.session.send("/app/fire", new FireRequest(code, target[0], target[1]));
+            PlayerView aliceView = checkedNext(alice.game);
+            checkedNext(bob.game);
+            if (aliceView.status() == GameStatus.IN_PROGRESS) {
+                bob.session.send("/app/fire", new FireRequest(code, BOB_FIRST_ROW + i / 10, i % 10));
+                checkedNext(alice.game);
+                checkedNext(bob.game);
+            }
+        }
+    }
+
     private record Player(StompSession session, BlockingQueue<RoomUpdate> room,
-                          BlockingQueue<PlayerView> game, BlockingQueue<ErrorMessage> errors) {
+                          BlockingQueue<PlayerView> game, BlockingQueue<ErrorMessage> errors,
+                          BlockingQueue<Notice> left) {
     }
 
     private Player connect() throws Exception {
@@ -185,7 +303,8 @@ class GameControllerIntegrationTest {
         return new Player(session,
                 subscribe(session, "/user/queue/room", RoomUpdate.class),
                 subscribe(session, "/user/queue/game", PlayerView.class),
-                subscribe(session, "/user/queue/errors", ErrorMessage.class));
+                subscribe(session, "/user/queue/errors", ErrorMessage.class),
+                subscribe(session, "/user/queue/left", Notice.class));
     }
 
     private String createAndJoin(Player alice, Player bob) throws InterruptedException {

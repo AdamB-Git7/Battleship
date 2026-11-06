@@ -7,13 +7,16 @@ import com.adam.battleship.model.Orientation;
 import com.adam.battleship.model.ShipType;
 import com.adam.battleship.model.ShotResult;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 public class Game {
     private final String code;
     private final String player1;
-    private final Board board1 = new Board();
-    private final Board board2 = new Board();
+    private final Set<String> rematchVotes = new HashSet<>();
+    private Board board1 = new Board();
+    private Board board2 = new Board();
     private String player2;
     private GameStatus status;
     private String currentTurn;
@@ -85,7 +88,31 @@ public class Game {
                 Objects.equals(playerId, winner),
                 mine.unplacedShips(),
                 mine.view(true),
-                theirs.view(false));
+                theirs.view(false),
+                rematchVotes.contains(playerId),
+                rematchVotes.contains(opponentOf(playerId)));
+    }
+
+    public synchronized void requestRematch(String playerId) {
+        if (status != GameStatus.FINISHED) {
+            throw new IllegalStateException("The game is not over yet");
+        }
+        if (!hasPlayer(playerId)) {
+            throw new IllegalArgumentException(playerId + " is not in this game");
+        }
+        rematchVotes.add(playerId);
+        if (rematchVotes.size() == 2) {
+            board1 = new Board();
+            board2 = new Board();
+            status = GameStatus.PLACING_SHIPS;
+            currentTurn = null;
+            winner = null;
+            rematchVotes.clear();
+        }
+    }
+
+    public synchronized boolean hasPlayer(String playerId) {
+        return player1.equals(playerId) || (player2 != null && player2.equals(playerId));
     }
 
     private Board boardOf(String playerId) {

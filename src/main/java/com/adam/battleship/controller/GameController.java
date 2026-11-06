@@ -33,6 +33,16 @@ public class GameController {
         }
     }
 
+    @MessageMapping("/rematch")
+    public void rematch(Principal player) {
+        Game game = rooms.findRoomOf(player.getName())
+                .orElseThrow(() -> new IllegalStateException("You are not in a room"));
+        synchronized (game) {
+            game.requestRematch(player.getName());
+            updates.sendViews(game);
+        }
+    }
+
     @MessageMapping("/fire")
     public void fire(FireRequest request, Principal player) {
         Game game = rooms.getRoom(RoomCodes.normalize(request.code()));

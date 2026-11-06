@@ -25,6 +25,9 @@ const elements = {
     placement: document.getElementById("placement"),
     rotate: document.getElementById("rotate"),
     orientation: document.getElementById("orientation"),
+    rematch: document.getElementById("rematch"),
+    leave: document.getElementById("leave"),
+    notice: document.getElementById("notice"),
     error: document.getElementById("error"),
     boards: document.getElementById("boards"),
     yourBoard: document.getElementById("your-board"),
@@ -48,6 +51,7 @@ client.onConnect = () => {
     client.subscribe("/user/queue/room", message => showRoom(JSON.parse(message.body)));
     client.subscribe("/user/queue/game", message => showGame(JSON.parse(message.body)));
     client.subscribe("/user/queue/errors", message => showError(JSON.parse(message.body).message));
+    client.subscribe("/user/queue/left", message => backToLobby(JSON.parse(message.body).message));
     setConnected(true);
 };
 
@@ -82,6 +86,7 @@ function buildGrid(container, onClick, onHover) {
 
 function showRoom(room) {
     roomCode = room.code;
+    elements.notice.hidden = true;
     elements.lobby.hidden = true;
     elements.room.hidden = false;
     elements.roomCode.textContent = room.code;
@@ -92,6 +97,9 @@ function showRoom(room) {
 }
 
 function showGame(newView) {
+    if (roomCode === null) {
+        return;
+    }
     view = newView;
     elements.error.hidden = true;
     elements.boards.hidden = false;
@@ -102,6 +110,33 @@ function showGame(newView) {
     elements.orientation.textContent = orientation === "HORIZONTAL" ? "Horizontal" : "Vertical";
     elements.opponentBoard.classList.toggle("active", canFire());
     elements.yourBoard.classList.toggle("active", isPlacing());
+    elements.rematch.hidden = view.status !== "FINISHED";
+    elements.rematch.disabled = view.rematchRequestedByYou;
+    elements.rematch.textContent = view.rematchRequestedByOpponent ? "Accept rematch" : "Rematch";
+}
+
+function backToLobby(message) {
+    roomCode = null;
+    view = null;
+    elements.room.hidden = true;
+    elements.boards.hidden = true;
+    elements.placement.hidden = true;
+    elements.rematch.hidden = true;
+    elements.error.hidden = true;
+    elements.lobby.hidden = false;
+    elements.code.value = "";
+    elements.notice.textContent = message;
+    elements.notice.hidden = message === null;
+    clearPreview();
+}
+
+function leave() {
+    const midGame = view !== null && (view.status === "PLACING_SHIPS" || view.status === "IN_PROGRESS");
+    if (midGame && !confirm("Leave this game? Your opponent will be sent back to the menu.")) {
+        return;
+    }
+    client.publish({ destination: "/app/leave" });
+    backToLobby(null);
 }
 
 function paint(cells, board) {
@@ -124,7 +159,14 @@ function statusText() {
         return view.yourTurn ? "Your turn: fire at the opponent's board." : "Opponent's turn…";
     }
     if (view.status === "FINISHED") {
-        return view.youWon ? "You won! All enemy ships are sunk." : "You lost. All your ships are sunk.";
+        const result = view.youWon ? "You won! All enemy ships are sunk." : "You lost. All your ships are sunk.";
+        if (view.rematchRequestedByYou) {
+            return `${result} Waiting for your opponent to accept the rematch…`;
+        }
+        if (view.rematchRequestedByOpponent) {
+            return `${result} Your opponent wants a rematch!`;
+        }
+        return result;
     }
     return "";
 }
@@ -209,6 +251,12 @@ elements.code.addEventListener("keydown", event => {
 });
 
 elements.rotate.addEventListener("click", rotate);
+
+elements.rematch.addEventListener("click", () => {
+    client.publish({ destination: "/app/rematch" });
+});
+
+elements.leave.addEventListener("click", leave);
 
 document.addEventListener("keydown", event => {
     if ((event.key === "r" || event.key === "R") && event.target !== elements.code) {

@@ -132,7 +132,30 @@ class RoomControllerIntegrationTest {
 
         alice.session.send("/app/join", new JoinRequest(code));
 
-        assertEquals("You are already in this room", next(alice.errors).message());
+        assertEquals("You are already in a room", next(alice.errors).message());
+    }
+
+    @Test
+    void playerInARoomCannotCreateAnother() throws Exception {
+        Player alice = connect();
+        createRoom(alice);
+
+        alice.session.send("/app/create", null);
+
+        assertEquals("You are already in a room", next(alice.errors).message());
+        assertNull(alice.room.poll(500, TimeUnit.MILLISECONDS));
+    }
+
+    @Test
+    void playerInARoomCannotJoinAnother() throws Exception {
+        Player alice = connect();
+        createRoom(alice);
+        Player dave = connect();
+        String daveCode = createRoom(dave);
+
+        alice.session.send("/app/join", new JoinRequest(daveCode));
+
+        assertEquals("You are already in a room", next(alice.errors).message());
     }
 
     @Test

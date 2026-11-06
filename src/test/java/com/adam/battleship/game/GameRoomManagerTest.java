@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -18,6 +19,57 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameRoomManagerTest {
     private final GameRoomManager manager = new GameRoomManager();
+
+    @Test
+    void removedRoomCanNoLongerBeFound() {
+        Game game = manager.createRoom("alice");
+
+        manager.removeRoom(game.getCode());
+
+        assertThrows(IllegalArgumentException.class, () -> manager.getRoom(game.getCode()));
+    }
+
+    @Test
+    void removingARoomTwiceIsHarmless() {
+        Game game = manager.createRoom("alice");
+        manager.removeRoom(game.getCode());
+
+        assertDoesNotThrow(() -> manager.removeRoom(game.getCode()));
+    }
+
+    @Test
+    void removingOneRoomLeavesTheOthers() {
+        Game kept = manager.createRoom("alice");
+        Game removed = manager.createRoom("dave");
+
+        manager.removeRoom(removed.getCode());
+
+        assertSame(kept, manager.getRoom(kept.getCode()));
+    }
+
+    @Test
+    void findRoomOfFindsBothPlayers() {
+        Game game = manager.createRoom("alice");
+        manager.joinRoom(game.getCode(), "bob");
+
+        assertSame(game, manager.findRoomOf("alice").orElseThrow());
+        assertSame(game, manager.findRoomOf("bob").orElseThrow());
+    }
+
+    @Test
+    void findRoomOfIsEmptyForSomeoneInNoRoom() {
+        manager.createRoom("alice");
+
+        assertTrue(manager.findRoomOf("mallory").isEmpty());
+    }
+
+    @Test
+    void findRoomOfIsEmptyAfterTheRoomIsRemoved() {
+        Game game = manager.createRoom("alice");
+        manager.removeRoom(game.getCode());
+
+        assertTrue(manager.findRoomOf("alice").isEmpty());
+    }
 
     @Test
     void createRoomGivesSixUppercaseLetterCode() {

@@ -3,6 +3,7 @@ package com.adam.battleship.game;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,6 +36,19 @@ public class GameRoomManager {
             throw new IllegalArgumentException("Room not found: " + code);
         }
         return game;
+    }
+
+    public void removeRoom(String code) {
+        rooms.remove(code);
+    }
+
+    public Optional<Game> findRoomOf(String playerId) {
+        for (Game game : rooms.values()) {
+            if (game.hasPlayer(playerId)) {
+                return Optional.of(game);
+            }
+        }
+        return Optional.empty();
     }
 
     private String generateCode() {

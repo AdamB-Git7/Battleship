@@ -10,10 +10,12 @@
 </head>
 <body>
 <main>
-    <h1>Battleship</h1>
-    <p id="connection" class="muted">Connecting…</p>
+    <header>
+        <h1>Battleship</h1>
+        <p id="connection" class="muted">Connecting…</p>
+    </header>
 
-    <section id="lobby">
+    <section id="lobby" class="card">
         <button id="create" disabled>Create room</button>
         <div class="join">
             <input id="code" placeholder="Room code" maxlength="6" autocomplete="off">
@@ -21,13 +23,27 @@
         </div>
     </section>
 
-    <section id="room" hidden>
-        <p>Room code: <strong id="room-code"></strong></p>
-        <p>Players: <span id="room-players"></span>/2</p>
-        <p id="room-status"></p>
+    <section id="room" class="card" hidden>
+        <p>Room code: <strong id="room-code"></strong> · Players: <span id="room-players"></span>/2</p>
+        <p id="status" class="status"></p>
+        <div id="placement" class="placement" hidden>
+            <button id="rotate">Rotate (R)</button>
+            <span id="orientation" class="muted"></span>
+        </div>
     </section>
 
     <p id="error" class="error" hidden></p>
+
+    <section id="boards" class="boards" hidden>
+        <div>
+            <h2>Your board</h2>
+            <div id="your-board" class="grid"></div>
+        </div>
+        <div>
+            <h2>Opponent's board</h2>
+            <div id="opponent-board" class="grid"></div>
+        </div>
+    </section>
 </main>
 </body>
 </html>

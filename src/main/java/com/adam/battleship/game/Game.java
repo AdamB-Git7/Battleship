@@ -7,6 +7,8 @@ import com.adam.battleship.model.Orientation;
 import com.adam.battleship.model.ShipType;
 import com.adam.battleship.model.ShotResult;
 
+import java.util.Objects;
+
 public class Game {
     private final String code;
     private final String player1;
@@ -73,11 +75,24 @@ public class Game {
         return result;
     }
 
+    public synchronized PlayerView viewFor(String playerId) {
+        Board mine = boardOf(playerId);
+        Board theirs = mine == board1 ? board2 : board1;
+        return new PlayerView(
+                code,
+                status,
+                Objects.equals(playerId, currentTurn),
+                Objects.equals(playerId, winner),
+                mine.unplacedShips(),
+                mine.view(true),
+                theirs.view(false));
+    }
+
     private Board boardOf(String playerId) {
         if (player1.equals(playerId)) {
             return board1;
         }
-        if (player2.equals(playerId)) {
+        if (player2 != null && player2.equals(playerId)) {
             return board2;
         }
         throw new IllegalArgumentException(playerId + " is not in this game");

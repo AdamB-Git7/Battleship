@@ -1,5 +1,6 @@
 package com.adam.battleship.game;
 
+import com.adam.battleship.model.CellView;
 import com.adam.battleship.model.Coordinate;
 import com.adam.battleship.model.GameStatus;
 import com.adam.battleship.model.Orientation;
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -268,6 +270,101 @@ class GameTest {
 
         assertEquals(1, accepted.get());
         assertEquals("bob", game.getCurrentTurn());
+    }
+
+    @Test
+    void viewWorksBeforeTheSecondPlayerJoins() {
+        Game game = new Game("ABCDEF", "alice");
+
+        PlayerView view = game.viewFor("alice");
+
+        assertEquals(GameStatus.WAITING_FOR_PLAYER, view.status());
+        assertFalse(view.yourTurn());
+    }
+
+    @Test
+    void strangerGetsNoView() {
+        Game game = gameWithBothPlayers();
+
+        assertThrows(IllegalArgumentException.class, () -> game.viewFor("mallory"));
+    }
+
+    @Test
+    void strangerGetsNoViewBeforeTheSecondPlayerJoins() {
+        Game game = new Game("ABCDEF", "alice");
+
+        assertThrows(IllegalArgumentException.class, () -> game.viewFor("mallory"));
+    }
+
+    @Test
+    void eachPlayerSeesTheirOwnShipsAndNeverTheOpponents() {
+        Game game = startedGame();
+
+        PlayerView alice = game.viewFor("alice");
+        PlayerView bob = game.viewFor("bob");
+
+        assertEquals(CellView.SHIP, alice.yourBoard().get(ALICE_FIRST_ROW).get(0));
+        assertEquals(CellView.SHIP, bob.yourBoard().get(BOB_FIRST_ROW).get(0));
+        assertFalse(containsShip(alice.opponentBoard()), "Alice can see Bob's ships");
+        assertFalse(containsShip(bob.opponentBoard()), "Bob can see Alice's ships");
+    }
+
+    @Test
+    void shotAppearsOnBothPlayersViews() {
+        Game game = startedGame();
+
+        game.fire("alice", new Coordinate(BOB_FIRST_ROW, 0));
+
+        assertEquals(CellView.HIT, game.viewFor("alice").opponentBoard().get(BOB_FIRST_ROW).get(0));
+        assertEquals(CellView.HIT, game.viewFor("bob").yourBoard().get(BOB_FIRST_ROW).get(0));
+    }
+
+    @Test
+    void viewTellsWhoseTurnItIs() {
+        Game game = startedGame();
+
+        assertTrue(game.viewFor("alice").yourTurn());
+        assertFalse(game.viewFor("bob").yourTurn());
+
+        game.fire("alice", new Coordinate(9, 9));
+
+        assertFalse(game.viewFor("alice").yourTurn());
+        assertTrue(game.viewFor("bob").yourTurn());
+    }
+
+    @Test
+    void viewListsShipsStillToPlace() {
+        Game game = gameWithBothPlayers();
+        game.placeShip("alice", ShipType.CARRIER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertEquals(ShipType.BATTLESHIP, game.viewFor("alice").shipsToPlace().get(0));
+        assertEquals(ShipType.CARRIER, game.viewFor("bob").shipsToPlace().get(0));
+    }
+
+    @Test
+    void viewTellsWhoWon() {
+        Game game = startedGame();
+        List<Coordinate> bobShips = shipSquares(BOB_FIRST_ROW);
+        List<Coordinate> water = halfOfBoard(BOB_FIRST_ROW);
+        for (int i = 0; i < bobShips.size(); i++) {
+            game.fire("alice", bobShips.get(i));
+            if (i < bobShips.size() - 1) {
+                game.fire("bob", water.get(i));
+            }
+        }
+
+        assertTrue(game.viewFor("alice").youWon());
+        assertFalse(game.viewFor("bob").youWon());
+        assertEquals(GameStatus.FINISHED, game.viewFor("bob").status());
+    }
+
+    private boolean containsShip(List<List<CellView>> board) {
+        for (List<CellView> row : board) {
+            if (row.contains(CellView.SHIP)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Game gameWithBothPlayers() {

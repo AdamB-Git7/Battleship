@@ -2,6 +2,8 @@ package com.adam.battleship.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -184,5 +186,105 @@ class BoardTest {
     void emptyBoardHasNoShips() {
         assertFalse(board.allShipsPlaced());
         assertFalse(board.hasShipAt(new Coordinate(0, 0)));
+    }
+
+    @Test
+    void viewIsTenRowsOfTenSquares() {
+        List<List<CellView>> view = board.view(true);
+
+        assertEquals(Board.SIZE, view.size());
+        for (List<CellView> row : view) {
+            assertEquals(Board.SIZE, row.size());
+        }
+    }
+
+    @Test
+    void emptyBoardViewIsAllEmpty() {
+        for (List<CellView> row : board.view(true)) {
+            for (CellView cell : row) {
+                assertEquals(CellView.EMPTY, cell);
+            }
+        }
+    }
+
+    @Test
+    void ownerSeesTheirShips() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(2, 3), Orientation.HORIZONTAL);
+
+        List<List<CellView>> view = board.view(true);
+
+        assertEquals(CellView.SHIP, view.get(2).get(3));
+        assertEquals(CellView.SHIP, view.get(2).get(4));
+        assertEquals(CellView.EMPTY, view.get(2).get(5));
+        assertEquals(CellView.EMPTY, view.get(3).get(3));
+    }
+
+    @Test
+    void opponentNeverSeesUnhitShips() {
+        for (ShipType type : ShipType.values()) {
+            board.placeShip(type, new Coordinate(type.ordinal(), 0), Orientation.HORIZONTAL);
+        }
+        board.fireAt(new Coordinate(0, 0));
+
+        for (List<CellView> row : board.view(false)) {
+            for (CellView cell : row) {
+                assertTrue(cell != CellView.SHIP, "opponent view leaked a ship");
+            }
+        }
+    }
+
+    @Test
+    void shotsShowAsMissHitAndSunkForBothViewers() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.placeShip(ShipType.CRUISER, new Coordinate(5, 5), Orientation.VERTICAL);
+        board.fireAt(new Coordinate(9, 9));
+        board.fireAt(new Coordinate(5, 5));
+        board.fireAt(new Coordinate(0, 0));
+        board.fireAt(new Coordinate(0, 1));
+
+        for (boolean showShips : new boolean[] {true, false}) {
+            List<List<CellView>> view = board.view(showShips);
+            assertEquals(CellView.MISS, view.get(9).get(9));
+            assertEquals(CellView.HIT, view.get(5).get(5));
+            assertEquals(CellView.SUNK, view.get(0).get(0));
+            assertEquals(CellView.SUNK, view.get(0).get(1));
+        }
+    }
+
+    @Test
+    void ownerSeesUnhitPartOfAHitShipButOpponentDoesNot() {
+        board.placeShip(ShipType.CRUISER, new Coordinate(5, 5), Orientation.VERTICAL);
+        board.fireAt(new Coordinate(5, 5));
+
+        assertEquals(CellView.SHIP, board.view(true).get(6).get(5));
+        assertEquals(CellView.EMPTY, board.view(false).get(6).get(5));
+    }
+
+    @Test
+    void viewCannotBeChangedFromOutside() {
+        List<List<CellView>> view = board.view(true);
+
+        assertThrows(UnsupportedOperationException.class, () -> view.get(0).set(0, CellView.SHIP));
+        assertThrows(UnsupportedOperationException.class, () -> view.add(List.of()));
+    }
+
+    @Test
+    void unplacedShipsListsMissingTypesBiggestFirst() {
+        assertEquals(List.of(ShipType.values()), board.unplacedShips());
+
+        board.placeShip(ShipType.CARRIER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.placeShip(ShipType.SUBMARINE, new Coordinate(1, 0), Orientation.HORIZONTAL);
+
+        assertEquals(List.of(ShipType.BATTLESHIP, ShipType.CRUISER, ShipType.DESTROYER),
+                board.unplacedShips());
+    }
+
+    @Test
+    void unplacedShipsIsEmptyWhenAllArePlaced() {
+        for (ShipType type : ShipType.values()) {
+            board.placeShip(type, new Coordinate(type.ordinal(), 0), Orientation.HORIZONTAL);
+        }
+
+        assertTrue(board.unplacedShips().isEmpty());
     }
 }

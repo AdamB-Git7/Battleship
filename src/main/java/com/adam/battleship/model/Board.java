@@ -1,7 +1,9 @@
 package com.adam.battleship.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -68,6 +70,43 @@ public class Board {
             }
         }
         return true;
+    }
+
+    public List<List<CellView>> view(boolean showShips) {
+        List<List<CellView>> rows = new ArrayList<>();
+        for (int r = 0; r < SIZE; r++) {
+            List<CellView> row = new ArrayList<>();
+            for (int c = 0; c < SIZE; c++) {
+                row.add(cellAt(new Coordinate(r, c), showShips));
+            }
+            rows.add(List.copyOf(row));
+        }
+        return List.copyOf(rows);
+    }
+
+    public List<ShipType> unplacedShips() {
+        List<ShipType> missing = new ArrayList<>();
+        for (ShipType type : ShipType.values()) {
+            if (!ships.containsKey(type)) {
+                missing.add(type);
+            }
+        }
+        return List.copyOf(missing);
+    }
+
+    private CellView cellAt(Coordinate c, boolean showShips) {
+        Ship ship = shipAt.get(c);
+        boolean shot = shotsReceived.contains(c);
+        if (shot && ship == null) {
+            return CellView.MISS;
+        }
+        if (shot) {
+            return ship.isSunk() ? CellView.SUNK : CellView.HIT;
+        }
+        if (ship != null && showShips) {
+            return CellView.SHIP;
+        }
+        return CellView.EMPTY;
     }
 
     private boolean isInBounds(Coordinate c) {

@@ -1,5 +1,5 @@
 param(
-    [string]$Server = "18.221.179.146",
+    [string]$Server = "18.219.114.254",
     [string]$Key = "$env:USERPROFILE\.ssh\battleship-key.pem"
 )
 

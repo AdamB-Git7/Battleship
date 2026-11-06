@@ -6,6 +6,7 @@
     <title>Battleship</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.5.0/bundles/stomp.umd.min.js"></script>
+    <script src="ships.js" defer></script>
     <script src="app.js" defer></script>
 </head>
 <body>
@@ -40,13 +41,13 @@
     <p id="error" class="error" hidden></p>
 
     <section id="boards" class="boards" hidden>
-        <div>
-            <h2>Your board</h2>
-            <div id="your-board" class="grid"></div>
+        <div class="board-panel">
+            <h2>Your fleet</h2>
+            <div id="your-board" class="board"></div>
         </div>
-        <div>
-            <h2>Opponent's board</h2>
-            <div id="opponent-board" class="grid"></div>
+        <div class="board-panel">
+            <h2>Enemy waters</h2>
+            <div id="opponent-board" class="board"></div>
         </div>
     </section>
 </main>

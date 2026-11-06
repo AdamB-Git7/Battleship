@@ -10,6 +10,7 @@ import com.adam.battleship.game.PlayerView;
 import com.adam.battleship.model.CellView;
 import com.adam.battleship.model.GameStatus;
 import com.adam.battleship.model.Orientation;
+import com.adam.battleship.model.ShipLayout;
 import com.adam.battleship.model.ShipType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -173,6 +174,7 @@ class GameControllerIntegrationTest {
         assertTrue(aliceView.youWon());
         assertFalse(bobView.youWon());
         assertEquals(CellView.SUNK, aliceView.opponentBoard().get(BOB_FIRST_ROW).get(0));
+        assertEquals(ShipType.values().length, aliceView.opponentShips().size());
     }
 
     @Test
@@ -351,6 +353,9 @@ class GameControllerIntegrationTest {
     private PlayerView checkedNext(BlockingQueue<PlayerView> queue) throws InterruptedException {
         PlayerView view = next(queue);
         assertFalse(containsShip(view.opponentBoard()), "a view leaked the opponent's ships");
+        for (ShipLayout ship : view.opponentShips()) {
+            assertTrue(ship.sunk(), "a view leaked an unsunk opponent ship: " + ship.type());
+        }
         return view;
     }
 

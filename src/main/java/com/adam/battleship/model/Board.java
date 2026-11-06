@@ -84,6 +84,18 @@ public class Board {
         return List.copyOf(rows);
     }
 
+    public List<ShipLayout> layout(boolean showShips) {
+        List<ShipLayout> result = new ArrayList<>();
+        for (ShipType type : ShipType.values()) {
+            Ship ship = ships.get(type);
+            if (ship != null && (showShips || ship.isSunk())) {
+                Coordinate start = ship.getStart();
+                result.add(new ShipLayout(type, start.row(), start.col(), ship.getOrientation(), ship.isSunk()));
+            }
+        }
+        return List.copyOf(result);
+    }
+
     public List<ShipType> unplacedShips() {
         List<ShipType> missing = new ArrayList<>();
         for (ShipType type : ShipType.values()) {

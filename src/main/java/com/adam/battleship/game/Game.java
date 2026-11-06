@@ -90,7 +90,9 @@ public class Game {
                 mine.view(true),
                 theirs.view(false),
                 rematchVotes.contains(playerId),
-                rematchVotes.contains(opponentOf(playerId)));
+                rematchVotes.contains(opponentOf(playerId)),
+                mine.layout(true),
+                theirs.layout(false));
     }
 
     public synchronized void requestRematch(String playerId) {

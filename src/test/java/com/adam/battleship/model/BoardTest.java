@@ -280,6 +280,31 @@ class BoardTest {
     }
 
     @Test
+    void ownerLayoutListsEveryShipWithItsStartAndDirection() {
+        board.placeShip(ShipType.CRUISER, new Coordinate(5, 5), Orientation.VERTICAL);
+        board.placeShip(ShipType.CARRIER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+
+        assertEquals(List.of(
+                new ShipLayout(ShipType.CARRIER, 0, 0, Orientation.HORIZONTAL, false),
+                new ShipLayout(ShipType.CRUISER, 5, 5, Orientation.VERTICAL, false)),
+                board.layout(true));
+    }
+
+    @Test
+    void opponentLayoutHidesShipsUntilTheyAreSunk() {
+        board.placeShip(ShipType.DESTROYER, new Coordinate(0, 0), Orientation.HORIZONTAL);
+        board.placeShip(ShipType.CRUISER, new Coordinate(5, 5), Orientation.VERTICAL);
+        assertTrue(board.layout(false).isEmpty());
+
+        board.fireAt(new Coordinate(0, 0));
+        assertTrue(board.layout(false).isEmpty(), "a hit but not sunk ship was revealed");
+
+        board.fireAt(new Coordinate(0, 1));
+        assertEquals(List.of(new ShipLayout(ShipType.DESTROYER, 0, 0, Orientation.HORIZONTAL, true)),
+                board.layout(false));
+    }
+
+    @Test
     void unplacedShipsIsEmptyWhenAllArePlaced() {
         for (ShipType type : ShipType.values()) {
             board.placeShip(type, new Coordinate(type.ordinal(), 0), Orientation.HORIZONTAL);

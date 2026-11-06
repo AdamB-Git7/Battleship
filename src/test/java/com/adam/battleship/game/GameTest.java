@@ -310,6 +310,16 @@ class GameTest {
     }
 
     @Test
+    void eachPlayerGetsTheirOwnShipLayoutButNotTheOpponents() {
+        Game game = startedGame();
+
+        PlayerView alice = game.viewFor("alice");
+
+        assertEquals(ShipType.values().length, alice.yourShips().size());
+        assertTrue(alice.opponentShips().isEmpty(), "Alice received Bob's ship layout");
+    }
+
+    @Test
     void shotAppearsOnBothPlayersViews() {
         Game game = startedGame();
 

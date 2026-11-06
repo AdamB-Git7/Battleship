@@ -7,11 +7,13 @@ import java.util.Set;
 
 public class Ship {
     private final ShipType type;
+    private final Orientation orientation;
     private final List<Coordinate> positions;
     private final Set<Coordinate> hits = new HashSet<>();
 
     public Ship(ShipType type, Coordinate start, Orientation orientation) {
         this.type = type;
+        this.orientation = orientation;
         List<Coordinate> cells = new ArrayList<>();
         for (int i = 0; i < type.getLength(); i++) {
             if (orientation == Orientation.HORIZONTAL) {
@@ -29,6 +31,14 @@ public class Ship {
 
     public List<Coordinate> getPositions() {
         return positions;
+    }
+
+    public Coordinate getStart() {
+        return positions.get(0);
+    }
+
+    public Orientation getOrientation() {
+        return orientation;
     }
 
     public void hit(Coordinate c) {

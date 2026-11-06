@@ -1,16 +1,5 @@
 const SIZE = 10;
-
-const SHIP_LENGTHS = {
-    CARRIER: 5,
-    BATTLESHIP: 4,
-    CRUISER: 3,
-    SUBMARINE: 3,
-    DESTROYER: 2
-};
-
-const LOBBY_TEXT = {
-    WAITING_FOR_PLAYER: "Waiting for a second player. Share the room code."
-};
+const ROW_LABELS = "ABCDEFGHIJ";
 
 const elements = {
     connection: document.getElementById("connection"),
@@ -37,9 +26,10 @@ const elements = {
 let roomCode = null;
 let view = null;
 let orientation = "HORIZONTAL";
+let lastHover = null;
 
-const yourCells = buildGrid(elements.yourBoard, placeShip, showPreview);
-const opponentCells = buildGrid(elements.opponentBoard, fireAt, null);
+const yourBoard = buildBoard(elements.yourBoard, placeShip, showPreview);
+const opponentBoard = buildBoard(elements.opponentBoard, fireAt, null);
 
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const client = new StompJs.Client({
@@ -63,25 +53,57 @@ function setConnected(connected) {
     elements.join.disabled = !connected;
 }
 
-function buildGrid(container, onClick, onHover) {
+function buildBoard(container, onClick, onHover) {
+    const colLabels = document.createElement("div");
+    colLabels.className = "col-labels";
+    for (let col = 0; col < SIZE; col++) {
+        const label = document.createElement("span");
+        label.textContent = col + 1;
+        colLabels.appendChild(label);
+    }
+
+    const rowLabels = document.createElement("div");
+    rowLabels.className = "row-labels";
+    for (let row = 0; row < SIZE; row++) {
+        const label = document.createElement("span");
+        label.textContent = ROW_LABELS[row];
+        rowLabels.appendChild(label);
+    }
+
+    const sea = document.createElement("div");
+    sea.className = "sea";
+    const ships = document.createElement("div");
+    ships.className = "ships";
+    const preview = document.createElement("div");
+    preview.className = "ships";
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    sea.append(ships, preview, grid);
+
     const cells = [];
     for (let row = 0; row < SIZE; row++) {
         const cellRow = [];
         for (let col = 0; col < SIZE; col++) {
             const cell = document.createElement("button");
-            cell.className = "cell";
-            cell.setAttribute("aria-label", `Row ${row + 1}, column ${col + 1}`);
+            cell.className = "cell empty";
+            cell.setAttribute("aria-label", `${ROW_LABELS[row]}${col + 1}`);
             cell.addEventListener("click", () => onClick(row, col));
             if (onHover) {
                 cell.addEventListener("mouseenter", () => onHover(row, col));
             }
-            container.appendChild(cell);
+            grid.appendChild(cell);
             cellRow.push(cell);
         }
         cells.push(cellRow);
     }
-    container.addEventListener("mouseleave", clearPreview);
-    return cells;
+    grid.addEventListener("mouseleave", () => {
+        lastHover = null;
+        clearPreview();
+    });
+
+    const corner = document.createElement("span");
+    container.append(corner, colLabels, rowLabels, sea);
+    return { cells, ships, preview };
 }
 
 function showRoom(room) {
@@ -92,7 +114,7 @@ function showRoom(room) {
     elements.roomCode.textContent = room.code;
     elements.roomPlayers.textContent = room.players;
     if (room.status === "WAITING_FOR_PLAYER") {
-        elements.status.textContent = LOBBY_TEXT.WAITING_FOR_PLAYER;
+        elements.status.textContent = "Waiting for a second player. Share the room code.";
     }
 }
 
@@ -103,8 +125,8 @@ function showGame(newView) {
     view = newView;
     elements.error.hidden = true;
     elements.boards.hidden = false;
-    paint(yourCells, view.yourBoard);
-    paint(opponentCells, view.opponentBoard);
+    paint(yourBoard, view.yourBoard, view.yourShips);
+    paint(opponentBoard, view.opponentBoard, view.opponentShips);
     elements.status.textContent = statusText();
     elements.placement.hidden = !isPlacing();
     elements.orientation.textContent = orientation === "HORIZONTAL" ? "Horizontal" : "Vertical";
@@ -113,6 +135,21 @@ function showGame(newView) {
     elements.rematch.hidden = view.status !== "FINISHED";
     elements.rematch.disabled = view.rematchRequestedByYou;
     elements.rematch.textContent = view.rematchRequestedByOpponent ? "Accept rematch" : "Rematch";
+    if (lastHover !== null) {
+        showPreview(lastHover.row, lastHover.col);
+    }
+}
+
+function paint(board, cellsData, ships) {
+    for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+            board.cells[row][col].className = "cell " + cellsData[row][col].toLowerCase();
+        }
+    }
+    board.ships.replaceChildren();
+    for (const ship of ships) {
+        placeShipSvg(board.ships, ship.type, ship.row, ship.col, ship.orientation, ship.sunk ? "sunk" : "");
+    }
 }
 
 function backToLobby(message) {
@@ -139,24 +176,16 @@ function leave() {
     backToLobby(null);
 }
 
-function paint(cells, board) {
-    for (let row = 0; row < SIZE; row++) {
-        for (let col = 0; col < SIZE; col++) {
-            cells[row][col].className = "cell " + board[row][col].toLowerCase();
-        }
-    }
-}
-
 function statusText() {
     if (view.status === "PLACING_SHIPS") {
         if (isPlacing()) {
             const ship = view.shipsToPlace[0];
-            return `Place your ${ship.toLowerCase()} (${SHIP_LENGTHS[ship]} squares) on your board.`;
+            return `Place your ${ship.toLowerCase()} (${SHIP_LENGTHS[ship]} squares) in your waters.`;
         }
         return "Waiting for your opponent to place their ships.";
     }
     if (view.status === "IN_PROGRESS") {
-        return view.yourTurn ? "Your turn: fire at the opponent's board." : "Opponent's turn…";
+        return view.yourTurn ? "Your turn: fire at the enemy waters." : "Opponent's turn…";
     }
     if (view.status === "FINISHED") {
         const result = view.youWon ? "You won! All enemy ships are sunk." : "You lost. All your ships are sunk.";
@@ -200,32 +229,37 @@ function fireAt(row, col) {
 }
 
 function showPreview(row, col) {
+    lastHover = { row, col };
     clearPreview();
     if (!isPlacing()) {
         return;
     }
-    const length = SHIP_LENGTHS[view.shipsToPlace[0]];
+    const type = view.shipsToPlace[0];
+    const valid = fits(row, col, SHIP_LENGTHS[type]);
+    placeShipSvg(yourBoard.preview, type, row, col, orientation, valid ? "preview" : "preview invalid");
+}
+
+function fits(row, col, length) {
     for (let i = 0; i < length; i++) {
         const r = orientation === "HORIZONTAL" ? row : row + i;
         const c = orientation === "HORIZONTAL" ? col + i : col;
-        if (r < SIZE && c < SIZE) {
-            yourCells[r][c].classList.add("preview");
+        if (r >= SIZE || c >= SIZE || view.yourBoard[r][c] !== "EMPTY") {
+            return false;
         }
     }
+    return true;
 }
 
 function clearPreview() {
-    for (const cellRow of yourCells) {
-        for (const cell of cellRow) {
-            cell.classList.remove("preview");
-        }
-    }
+    yourBoard.preview.replaceChildren();
 }
 
 function rotate() {
     orientation = orientation === "HORIZONTAL" ? "VERTICAL" : "HORIZONTAL";
     elements.orientation.textContent = orientation === "HORIZONTAL" ? "Horizontal" : "Vertical";
-    clearPreview();
+    if (lastHover !== null) {
+        showPreview(lastHover.row, lastHover.col);
+    }
 }
 
 function showError(message) {
